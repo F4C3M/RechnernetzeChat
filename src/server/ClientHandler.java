@@ -1,249 +1,96 @@
 package server;
-import common.Encryption.*;
-
 import java.io.*;
-import java.net.Socket;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.util.Base64;
+import java.net.*;
 
-import javax.crypto.SecretKey;
-
-public class ClientHandler implements Runnable {
+class ClientHandler extends Thread {
     private Socket socket;
     private BufferedReader in;
-    private BufferedWriter out;
-    private String username;
-    private PrivateKey privateKey;
-    private PublicKey publicKey;
-    private String publicKeyString;
-    private SecretKey clientAESKey;
+    private PrintWriter out;
+    private UserDatabase userDb;
+    private OnlineUsers online;
+    private String username = null;
 
-
-    public ClientHandler(Socket socket, PrivateKey privateKey, PublicKey publicKey) {
-        this.socket = socket;
-        this.privateKey = privateKey;
-        this.publicKey = publicKey;
-        this.publicKeyString = Base64.getEncoder().encodeToString(publicKey.getEncoded());
-
+    public ClientHandler(Socket s, UserDatabase db, OnlineUsers o) {
+        this.socket = s;
+        this.userDb = db;
+        this.online = o;
+        
+        try {
+            in = new BufferedReader(new InputStreamReader(s.getInputStream()));
+            out = new PrintWriter(s.getOutputStream(), true);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void run() {
         try {
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-            send("RSAKEY:" + publicKeyString);
-            while (true) {
+            String line;
 
-                while (clientAESKey == null){
-                    String input = in.readLine();
-                    if (input.startsWith("AESKEY:")) {
-                        String encryptedBase64 = input.substring("AESKEY:".length());
-                        byte[] encryptedKeyBytes = Base64.getDecoder().decode(encryptedBase64);
-                        try {
-                            byte[] decryptedKeyBytes = EncryptionHelper.decryptRSA(encryptedKeyBytes, privateKey);
-                            clientAESKey = EncryptionHelper.decodeAESKey(decryptedKeyBytes);
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                        }
-                    }
-                }
-
-                if (!handleInitialMenu()) {
-                    
-                }
-                else{
-
-                
-                sendEncrypted("Successfully logged in as " + username);
-                while (true) {
-                    String encInput = in.readLine();
-                    String input = EncryptionHelper.decryptAES(encInput, clientAESKey);
-                    if (input == null || input.equalsIgnoreCase("quit")) {
-                        System.out.println("Client durch 'quit' getrennt: " + username + " " + socket);
-                        close();
-                        return;
-                    } else if (input.equalsIgnoreCase("list")) {
-                        listActiveUsers();
-                    } else if (input.startsWith("invite ")) {
-                        String target = input.split(" ")[1];
-                        ChatServer.setUdpPort(username, Integer.parseInt(input.split(" ")[2]) ); 
-                        inviteUser(target);
-
-                    } else if (input.contains("no") || input.contains("yes")){
-                         handleInvitationResponse(input);
-                    }else {
-
-                    }
-                }
-                }
+            while ((line = in.readLine()) != null) {
+                process(line);
             }
-
         } catch (IOException e) {
-            System.out.println("Client getrennt: " + username + " " + socket);
-        } catch (Exception e) {
-            // Auto-generated catch block
-            e.printStackTrace();
+            System.out.println("Client getrennt: " + username);
         } finally {
-            if (username != null) {
-                ChatServer.removeActiveUser(username);
-            }
-            close();
+            if (username != null) online.remove(username);
         }
     }
 
-    private boolean handleInitialMenu() throws Exception {
+    private void process(String msg) {
+        System.out.println("RECV: " + msg);
+        String[] parts = msg.split("\\|");
+        String cmd = parts[0];
 
-
-        
-        sendEncrypted("Willkommen. Bitte registrieren oder einloggen.");
-        String input = in.readLine();
-        String cmd = EncryptionHelper.decryptAES(input, clientAESKey);
-
-        if (cmd == null) return false;
-
-        if ("register".equalsIgnoreCase(cmd)) {
-            
-            
-            return handleRegistration();
-        } else if ("login".equalsIgnoreCase(cmd)) {
-            return handleLogin(); 
-        } 
-        else {
-            sendEncrypted("Ungültiger Befehl.");
-            return false;
+        switch (cmd) {
+            case "REGISTER":
+                handleRegister(parts);
+                break;
+            case "LOGIN":
+                handleLogin(parts);
+                break;
+            case "GET_USERS":
+                sendUserList();
+                break;
+            case "INVITE":
+                handleInvite(parts);
+                break;
         }
     }
 
+    private void handleRegister(String[] p) {
+        if (p.length < 3) return;
+        String u = p[1], pw = p[2];
+        if (userDb.register(u, pw)) out.println("REGISTER_OK");
+        else out.println("REGISTER_FAIL|Username existiert bereits");
+    }
 
-    private boolean handleRegistration() throws Exception {
-        //send("Neuen Benutzernamen eingeben:");
-        String encUser = in.readLine();
-        String user = EncryptionHelper.decryptAES(encUser, clientAESKey);
-        System.out.println(user);
+    private void handleLogin(String[] p) {
+        if (p.length < 3) return;
+        String u = p[1], pw = p[2];
 
-        //send("Passwort eingeben:");
-        String encPass = in.readLine();
-        String pass = EncryptionHelper.decryptAES(encPass, clientAESKey);
+        if (userDb.login(u, pw)) {
+            username = u;
+            online.add(u, this);
+            out.println("LOGIN_OK");
+        } else out.println("LOGIN_FAIL|Falsche Daten");
+    }
 
-        if (ChatServer.isRegistered(user)) {
-            sendEncrypted("Benutzer existiert bereits!");
-            return false;
-        } else {
-            ChatServer.registerUser(user, pass);
-            this.username = user;
-            ChatServer.addActiveUser(user, this);
-            return true;
-            
+    private void sendUserList() {
+        String users = String.join(",", online.getUsernames());
+        out.println("USERS|" + users);
+    }
+
+    private void handleInvite(String[] p) {
+        if (p.length < 3) return;
+
+        String target = p[1];
+        String udpPort = p[2];
+
+        ClientHandler h = online.getHandler(target);
+        if (h != null) {
+            String ip = socket.getInetAddress().getHostAddress();
+            h.out.println("INVITE_FROM|" + username + "|" + ip + "|" + udpPort);
         }
-        
-    }
-
-
-    private boolean handleLogin() throws Exception {
-        //send("Neuen Benutzernamen eingeben:");
-        String encUser = in.readLine();
-        String user = EncryptionHelper.decryptAES(encUser, clientAESKey);
-
-        //send("Passwort eingeben:");
-        String encPass = in.readLine();
-        String pass = EncryptionHelper.decryptAES(encPass, clientAESKey);
-
-        if (!ChatServer.checkCredentials(user, pass)) {
-            sendEncrypted("Login fehlgeschlagen.");
-            return false;
-        } else {
-            this.username = user;
-            ChatServer.addActiveUser(user, this);
-            return true;
-        }
-    }
-
-
-    private void listActiveUsers() throws IOException {
-        var users = ChatServer.getActiveUsernames();
-        System.out.println("Active Users auf Server: " + users);
-        if (users.isEmpty()) {
-            sendEncrypted("Keine aktiven Nutzer.");
-        } else {
-            sendEncrypted("Aktive Nutzer: " + users);
-        }
-    }
-
-    private void inviteUser(String target) throws IOException {
-        ClientHandler partner = ChatServer.getHandler(target);
-        if (partner == null) {
-            sendEncrypted("Benutzer nicht aktiv.");
-            return;
-        }
-        ChatServer.pendingInvitations.put(target, username);
-        partner.sendEncrypted(username + " invited you to chat.");
-    }
-
-    private void send(String message) throws IOException {
-        out.write(message + "\n");
-        out.flush();
-    }
-
-    private void sendEncrypted(String message) throws IOException {
-    try {
-        String encrypted = EncryptionHelper.encryptAES(message, clientAESKey);
-        out.write(encrypted + "\n");
-        out.flush();
-    } catch (Exception ex) {
-        System.out.println("Fehler beim AES-Senden an Client: " + ex.getMessage());
-    }
-}
-
-    private void handleInvitationResponse(String response) throws IOException {
-    String inviter = ChatServer.pendingInvitations.get(username); 
-    if (inviter == null) {
-        sendEncrypted("Keine ausstehende Einladung.");
-        return;
-    }
-
-    ClientHandler inviterHandler = ChatServer.getHandler(inviter);
-    if (inviterHandler == null) {
-        sendEncrypted("Einladender Benutzer nicht verfügbar.");
-        ChatServer.pendingInvitations.remove(username);
-        return;
-    }
-    if (response.split(" ")[0].equals("yes")) {
-        int port = Integer.parseInt(response.split(" ")[2]);
-        ChatServer.setUdpPort(username, port); 
-        sendEncrypted("Du bist jetzt mit " + inviter + " im Chat.");
-        inviterHandler.sendEncrypted("Einladung akzeptiert. Du bist jetzt mit " + username + " im Chat.");
-
-        String inviterIp = inviterHandler.getSocket().getInetAddress().getHostAddress();
-        int inviterUdpPort = ChatServer.getUdpPort(inviter);
-
-        String inviteeIp = this.socket.getInetAddress().getHostAddress();
-        int inviteeUdpPort = ChatServer.getUdpPort(username);
-
-        byte[] keyBytes = clientAESKey.getEncoded();
-        String keyBase64 = Base64.getEncoder().encodeToString(keyBytes);
-
-        inviterHandler.sendEncrypted("peerinfo " + inviteeIp + " " + inviteeUdpPort + " " + keyBase64);
-        this.sendEncrypted("peerinfo " + inviterIp + " " + inviterUdpPort + " " + keyBase64);
-
-    } else {
-        sendEncrypted("Einladung abgelehnt.");
-        inviterHandler.sendEncrypted("Einladung von " + username + " abgelehnt.");
-    }
-
-    ChatServer.pendingInvitations.remove(username);
-    }
-
-    
-
-    private void close() {
-        try {
-            socket.close();
-        } catch (IOException ignored) {
-        }
-    }
-
-    public Socket getSocket() {
-        return socket;
     }
 }
