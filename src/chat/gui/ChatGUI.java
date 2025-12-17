@@ -1,13 +1,14 @@
-package gui;
+package chat.gui;
 import javax.swing.*;
+
+import chat.client.ChatClient;
+import chat.client.ChatEvents;
+import chat.client.UDPChat;
+
 import java.awt.*;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.List;
-
-import client.ChatClient;
-import client.ChatEvents;
-import client.UDPChat;
 
 public class ChatGUI {
     private ChatClient client = new ChatClient();
@@ -47,7 +48,7 @@ public class ChatGUI {
         loginFrame.setVisible(true);
 
         // Connect to server
-        client.connect("localhost", 5000);
+        client.connect("localhost", 5001);
 
         loginBtn.addActionListener(e -> {
             new Thread(() -> {
@@ -77,29 +78,24 @@ public class ChatGUI {
 
         regBtn.addActionListener(e -> {
             new Thread(() -> {
-                try {
-                    boolean ok = client.register(
-                        userField.getText(),
-                        new String(passField.getPassword())
-                    );
+                boolean ok = client.register(
+                    userField.getText(),
+                    new String(passField.getPassword())
+                );
 
-                    SwingUtilities.invokeLater(() -> {
-                        if (ok) {
-                            JOptionPane.showMessageDialog(
-                                loginFrame,
-                                "Registriert! Jetzt einloggen."
-                            );
-                        } else {
-                            JOptionPane.showMessageDialog(
-                                loginFrame,
-                                "Username existiert bereits."
-                            );
-                        }
-                    });
-
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
+                SwingUtilities.invokeLater(() -> {
+                    if (ok) {
+                        JOptionPane.showMessageDialog(
+                            loginFrame,
+                            "Registriert! Jetzt einloggen."
+                        );
+                    } else {
+                        JOptionPane.showMessageDialog(
+                            loginFrame,
+                            "Username existiert bereits."
+                        );
+                    }
+                });
             }).start();
         });
     }
