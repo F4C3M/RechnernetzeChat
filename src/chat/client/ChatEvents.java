@@ -2,8 +2,8 @@ package chat.client;
 import java.util.*;
 
 public interface ChatEvents {
-    void onUserList(List<String> users);
-    void onInvite(String from);
-    void onUdpMessage(String msg);
-    void onDisconnect();
+    void beiUserliste(List<String> users);
+    void beiEinladung(String from);
+    void beiUdpNachricht(String msg);
+    void beiTrennung();
 }

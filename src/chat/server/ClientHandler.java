@@ -4,33 +4,33 @@ import java.net.Socket;
 
 class ClientHandler extends Thread {
     private final Socket socket;
-    private final BufferedReader in;
-    private final PrintWriter out;
-    private final UserDatabase userDb;
-    private final OnlineUsers online;
+    private final BufferedReader eingabe;
+    private final PrintWriter ausgabe;
+    private final UserDatabase userDatenbank;
+    private final OnlineUsers onlineUser;
     private String username;
 
-    public ClientHandler(Socket socket, UserDatabase userDb, OnlineUsers online) throws IOException {
+    public ClientHandler(Socket socket, UserDatabase userDatenbank, OnlineUsers onlineUser) throws IOException {
         this.socket = socket;
-        this.userDb = userDb;
-        this.online = online;
+        this.userDatenbank = userDatenbank;
+        this.onlineUser = onlineUser;
 
-        this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        this.out = new PrintWriter(socket.getOutputStream(), true);
+        this.eingabe = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        this.ausgabe = new PrintWriter(socket.getOutputStream(), true);
     }
 
     @Override
     public void run() {
         try {
-            String line;
-            while ((line = in.readLine()) != null) {
-                process(line);
+            String eingehendeNachricht;
+            while ((eingehendeNachricht = eingabe.readLine()) != null) {
+                nachrichtenVerarbeiten(eingehendeNachricht);
             }
         } catch (IOException e) {
             System.out.println("Client getrennt: " + username);
         } finally {
             if (username != null) {
-                online.remove(username);
+                onlineUser.entfernen(username);
             }
             try {
                 socket.close();
@@ -38,83 +38,83 @@ class ClientHandler extends Thread {
         }
     }
 
-    private void process(String msg) {
-        System.out.println("RECV: " + msg);
+    private void nachrichtenVerarbeiten(String nachricht) {
+        System.out.println("RECV: " + nachricht);
 
-        String[] parts = msg.split("\\|");
-        String cmd = parts[0];
+        String[] nachrichtenTeile = nachricht.split("\\|");
+        String befehl = nachrichtenTeile[0];
 
-        switch (cmd) {
+        switch (befehl) {
             case "REGISTER":
-                handleRegister(parts);
+                registrierungBearbeiten(nachrichtenTeile);
                 break;
             case "LOGIN":
-                handleLogin(parts);
+                anmeldungBearbeiten(nachrichtenTeile);
                 break;
             case "GET_USERS":
-                sendUserList();
+                userlisteSenden();
                 break;
             case "INVITE":
-                handleInvite(parts);
+                einladungBearbeiten(nachrichtenTeile);
                 break;
             default:
-                out.println("ERROR|Unknown command");
+                ausgabe.println("ERROR|Unknown command");
         }
     }
 
-    private void handleRegister(String[] p) {
-        if (p.length < 3) {
-            out.println("REGISTER_FAIL|Invalid format");
+    private void registrierungBearbeiten(String[] nachrichtenTeile) {
+        if (nachrichtenTeile.length < 3) {
+            ausgabe.println("REGISTER_FAIL|Invalid format");
             return;
         }
 
-        String user = p[1];
-        String pass = p[2];
+        String benutzername = nachrichtenTeile[1];
+        String passwort = nachrichtenTeile[2];
 
-        if (userDb.register(user, pass)) {
-            out.println("REGISTER_OK");
+        if (userDatenbank.registrieren(benutzername, passwort)) {
+            ausgabe.println("REGISTER_OK");
         } else {
-            out.println("REGISTER_FAIL|Username existiert bereits");
+            ausgabe.println("REGISTER_FAIL|Username existiert bereits");
         }
     }
 
-    private void handleLogin(String[] p) {
+    private void anmeldungBearbeiten(String[] p) {
         if (p.length < 3) {
-            out.println("LOGIN_FAIL|Invalid format");
+            ausgabe.println("LOGIN_FAIL|Invalid format");
             return;
         }
 
-        String user = p[1];
-        String pass = p[2];
+        String benutzername = p[1];
+        String passwort = p[2];
 
-        if (!userDb.login(user, pass)) {
-            out.println("LOGIN_FAIL|Falsche Login-Daten");
+        if (!userDatenbank.anmelden(benutzername, passwort)) {
+            ausgabe.println("LOGIN_FAIL|Falsche Login-Daten");
             return;
         }
 
-        username = user;
-        online.add(username, this);
-        out.println("LOGIN_OK");
+        username = benutzername;
+        onlineUser.hinzufuegen(username, this);
+        ausgabe.println("LOGIN_OK");
     }
 
-    private void sendUserList() {
-        String users = String.join(",", online.getUsernames());
-        out.println("USERS|" + users);
+    private void userlisteSenden() {
+        String users = String.join(",", onlineUser.getUsernames());
+        ausgabe.println("USERS|" + users);
     }
 
-    private void handleInvite(String[] p) {
+    private void einladungBearbeiten(String[] p) {
         if (p.length < 3) return;
 
-        String targetUser = p[1];
+        String zielUser = p[1];
         String udpPort = p[2];
 
-        ClientHandler target = online.getHandler(targetUser);
-        if (target == null) return;
+        ClientHandler zielHandler = onlineUser.getUserHandler(zielUser);
+        if (zielHandler == null) return;
 
-        String ip = socket.getInetAddress().getHostAddress();
+        String ipAdresse = socket.getInetAddress().getHostAddress();
 
-        target.out.println(
-            "INVITE_FROM|" + username + "|" + ip + "|" + udpPort
+        zielHandler.ausgabe.println(
+            "INVITE_FROM|" + username + "|" + ipAdresse + "|" + udpPort
         );
     }
 }

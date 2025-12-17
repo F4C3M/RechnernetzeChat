@@ -4,8 +4,8 @@ import java.net.*;
 
 public class ChatServer {
     private ServerSocket serverSocket;
-    private UserDatabase userDb = new UserDatabase();
-    private OnlineUsers online = new OnlineUsers();
+    private UserDatabase userDatenbank = new UserDatabase();
+    private OnlineUsers onlineUser = new OnlineUsers();
 
     public static void main(String[] args) {
         new ChatServer().start(5001);
@@ -17,8 +17,8 @@ public class ChatServer {
             System.out.println("Server läuft auf Port " + port);
             
             while (true) {
-                Socket client = serverSocket.accept();
-                new ClientHandler(client, userDb, online).start();
+                Socket eingehenderClient = serverSocket.accept();
+                new ClientHandler(eingehenderClient, userDatenbank, onlineUser).start();
             }
         } catch (IOException e) {
             e.printStackTrace();

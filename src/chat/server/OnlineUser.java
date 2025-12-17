@@ -5,11 +5,11 @@ import java.util.concurrent.*;
 class OnlineUsers {
     private final Map<String, ClientHandler> handlers = new ConcurrentHashMap<>();
 
-    public void add(String username, ClientHandler handler) {
-        handlers.put(username, handler);
+    public void hinzufuegen(String username, ClientHandler userHandler) {
+        handlers.put(username, userHandler);
     }
 
-    public void remove(String username) {
+    public void entfernen(String username) {
         handlers.remove(username);
     }
 
@@ -17,7 +17,7 @@ class OnlineUsers {
         return handlers.keySet();
     }
 
-    public ClientHandler getHandler(String username) {
+    public ClientHandler getUserHandler(String username) {
         return handlers.get(username);
     }
 }

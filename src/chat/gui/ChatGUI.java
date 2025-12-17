@@ -10,100 +10,96 @@ import java.util.List;
 
 public class ChatGUI {
     private ChatClient client = new ChatClient();
-    private JFrame loginFrame;
-    private JFrame chatFrame;
-    private DefaultListModel<String> userListModel = new DefaultListModel<>();
-    private JTextArea chatArea = new JTextArea();
-    private JTextField msgField = new JTextField();
+    private JFrame loginFenster;
+    private JFrame chatFenster;
+    private DefaultListModel<String> userlistenModell = new DefaultListModel<>();
+    private JTextArea chatTextbereich = new JTextArea();
+    private JTextField nachrichtenFeld = new JTextField();
     private UDPChat udpChat;
     
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new ChatGUI().showLogin());
+        SwingUtilities.invokeLater(() -> new ChatGUI().zeigLoginFenster());
     }
 
-    public void showLogin() {
-        loginFrame = new JFrame("Login / Register");
-        loginFrame.setSize(350, 200);
-        loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        loginFrame.setLayout(new GridLayout(4, 1));
+    public void zeigLoginFenster() {
+        loginFenster = new JFrame("Login / Register");
+        loginFenster.setSize(350, 200);
+        loginFenster.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        loginFenster.setLayout(new GridLayout(4, 1));
 
-        JTextField userField = new JTextField();
-        JPasswordField passField = new JPasswordField();
+        JTextField benutzerFeld = new JTextField();
+        JPasswordField passwortFeld = new JPasswordField();
 
-        JButton loginBtn = new JButton("Login");
-        JButton regBtn = new JButton("Register");
+        JButton loginButton = new JButton("Login");
+        JButton registerButton = new JButton("Register");
 
-        loginFrame.add(new JLabel("Username:"));
-        loginFrame.add(userField);
-        loginFrame.add(new JLabel("Passwort:"));
-        loginFrame.add(passField);
+        loginFenster.add(new JLabel("Username:"));
+        loginFenster.add(benutzerFeld);
+        loginFenster.add(new JLabel("Passwort:"));
+        loginFenster.add(passwortFeld);
 
-        JPanel p = new JPanel();
-        p.add(loginBtn);
-        p.add(regBtn);
-        loginFrame.add(p, BorderLayout.SOUTH);
+        JPanel panel = new JPanel();
+        panel.add(loginButton);
+        panel.add(registerButton);
+        loginFenster.add(panel, BorderLayout.SOUTH);
 
-        loginFrame.setVisible(true);
+        loginFenster.setVisible(true);
+        client.verbinden("localhost", 5001);
 
-        // Connect to server
-        client.connect("localhost", 5001);
-
-        client.listenAsync(new ChatEvents() {
-            @Override public void onUserList(List<String> users) {}
-            @Override public void onInvite(String data) {}
-            @Override public void onUdpMessage(String msg) {}
-            @Override public void onDisconnect() {
+        client.serverListenerStarten(new ChatEvents() {
+            @Override public void beiUserliste(List<String> users) {}
+            @Override public void beiEinladung(String daten) {}
+            @Override public void beiUdpNachricht(String nachrichten) {}
+            @Override public void beiTrennung() {
                 JOptionPane.showMessageDialog(
-                    loginFrame,
-                    "Server getrennt"
+                    loginFenster,
+                    "Server wurde getrennt"
                 );
             }
         });
 
-
-        loginBtn.addActionListener(e -> {
+        loginButton.addActionListener(e -> {
             new Thread(() -> {
                 try {
-                    boolean ok = client.login(
-                        userField.getText(),
-                        new String(passField.getPassword())
+                    boolean erfolg = client.anmelden(
+                        benutzerFeld.getText(),
+                        new String(passwortFeld.getPassword())
                     );
 
                     SwingUtilities.invokeLater(() -> {
-                        if (ok) {
-                            openChat();
-                            loginFrame.dispose();
+                        if (erfolg) {
+                            chatOeffnen();
+                            loginFenster.dispose();
                         } else {
                             JOptionPane.showMessageDialog(
-                                loginFrame,
-                                "Falsche Login-Daten"
+                                loginFenster,
+                                "Falsche Logindaten!"
                             );
                         }
                     });
-
                 } catch (IOException ex) {
                     ex.printStackTrace();
                 }
             }).start();
         });
 
-        regBtn.addActionListener(e -> {
+        registerButton.addActionListener(e -> {
             new Thread(() -> {
-                boolean ok = client.register(
-                    userField.getText(),
-                    new String(passField.getPassword())
+                boolean erfolg = client.registrieren(
+                    benutzerFeld.getText(),
+                    new String(passwortFeld.getPassword())
                 );
 
                 SwingUtilities.invokeLater(() -> {
-                    if (ok) {
+                    if (erfolg) {
                         JOptionPane.showMessageDialog(
-                            loginFrame,
-                            "Registriert! Jetzt einloggen."
+                            loginFenster,
+                            "Sie sind jetzt registriert! Jetzt loggen Sie sich ein."
                         );
                     } else {
                         JOptionPane.showMessageDialog(
-                            loginFrame,
-                            "Username existiert bereits."
+                            loginFenster,
+                            "Der Username existiert bereits."
                         );
                     }
                 });
@@ -111,84 +107,84 @@ public class ChatGUI {
         });
     }
 
-    public void openChat() {
+    public void chatOeffnen() {
         try {
             udpChat = new UDPChat(client.getUdpPort());
-            udpChat.listen(new ChatEvents() {
-                @Override public void onUdpMessage(String msg) {
-                    SwingUtilities.invokeLater(() -> chatArea.append("\n" + msg));
+            udpChat.lauschen(new ChatEvents() {
+                @Override public void beiUdpNachricht(String nachricht) {
+                    SwingUtilities.invokeLater(() -> chatTextbereich.append("\n" + nachricht));
                 }
-                @Override public void onUserList(List<String> u) {}
-                @Override public void onInvite(String f) {}
-                @Override public void onDisconnect() {}
+                @Override public void beiUserliste(List<String> userliste) {}
+                @Override public void beiEinladung(String einladungsDaten) {}
+                @Override public void beiTrennung() {}
             });
         } catch (Exception e) {
             JOptionPane.showMessageDialog(
-                chatFrame,
+                chatFenster,
                 "UDP-Start fehlgeschlagen: " + e.getMessage()
             );
             e.printStackTrace();
         }
 
-        chatFrame = new JFrame("Chat");
-        chatFrame.setSize(600, 400);
-        chatFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        chatFenster = new JFrame("Chat");
+        chatFenster.setSize(600, 400);
+        chatFenster.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        userListModel.clear();
-        JList<String> userList = new JList<>(userListModel);
+        userlistenModell.clear();
+        JList<String> userliste = new JList<>(userlistenModell);
+        JButton refreshButton = new JButton("Refresh Users");
+        JButton inviteButton = new JButton("Invite");
 
-        JButton refreshBtn = new JButton("Refresh Users");
-        JButton inviteBtn = new JButton("Invite");
+        chatTextbereich.setEditable(false);
+        JScrollPane chatScrollen = new JScrollPane(chatTextbereich);
 
-        chatArea.setEditable(false);
-        JScrollPane chatScroll = new JScrollPane(chatArea);
+        JPanel untenPanel = new JPanel(new BorderLayout());
+        untenPanel.add(nachrichtenFeld, BorderLayout.CENTER);
+        
+        JButton sendenButton = new JButton("Send (UDP)");
+        untenPanel.add(sendenButton, BorderLayout.EAST);
 
-        JPanel bottom = new JPanel(new BorderLayout());
-        bottom.add(msgField, BorderLayout.CENTER);
-        JButton sendBtn = new JButton("Send (UDP)");
-        bottom.add(sendBtn, BorderLayout.EAST);
+        JPanel rechtsPanel = new JPanel(new BorderLayout());
+        rechtsPanel.add(new JScrollPane(userliste), BorderLayout.CENTER);
+        
+        JPanel rechteButtons = new JPanel();
+        rechteButtons.add(refreshButton);
+        rechteButtons.add(inviteButton);
+        rechtsPanel.add(rechteButtons, BorderLayout.SOUTH);
 
-        JPanel right = new JPanel(new BorderLayout());
-        right.add(new JScrollPane(userList), BorderLayout.CENTER);
-        JPanel rightBtns = new JPanel();
-        rightBtns.add(refreshBtn);
-        rightBtns.add(inviteBtn);
-        right.add(rightBtns, BorderLayout.SOUTH);
+        chatFenster.setLayout(new BorderLayout());
+        chatFenster.add(chatScrollen, BorderLayout.CENTER);
+        chatFenster.add(untenPanel, BorderLayout.SOUTH);
+        chatFenster.add(rechtsPanel, BorderLayout.EAST);
+        chatFenster.setVisible(true);
 
-        chatFrame.setLayout(new BorderLayout());
-        chatFrame.add(chatScroll, BorderLayout.CENTER);
-        chatFrame.add(bottom, BorderLayout.SOUTH);
-        chatFrame.add(right, BorderLayout.EAST);
-
-        chatFrame.setVisible(true);
-
-        client.listenAsync(new ChatEvents() {
+        client.serverListenerStarten(new ChatEvents() {
             @Override
-            public void onUserList(List<String> users) {
+            public void beiUserliste(List<String> users) {
                 SwingUtilities.invokeLater(() -> {
-                    userListModel.clear();
-                    for (String u : users) userListModel.addElement(u);
+                    userlistenModell.clear();
+                    for (String user : users) userlistenModell.addElement(user);
                 });
             }
 
             @Override
-            public void onInvite(String data) {
-                String[] p = data.split("\\|");
-                String from = p[0];
-                String ip = p[1];
-                int port = Integer.parseInt(p[2]);
+            public void beiEinladung(String daten) {
+                String[] paket = daten.split("\\|");
+                String vonBenutzer = paket[0];
+                String ipAdresse = paket[1];
+                int port = Integer.parseInt(paket[2]);
 
-                int res = JOptionPane.showConfirmDialog(
-                    chatFrame,
-                    "Chat-Anfrage von " + from + " annehmen?",
+                int antwortDialog = JOptionPane.showConfirmDialog(
+                    chatFenster,
+                    "Chat-Anfrage von " + vonBenutzer + " annehmen?",
                     "Invite",
                     JOptionPane.YES_NO_OPTION
                 );
 
-                if (res == JOptionPane.YES_OPTION) {
+                if (antwortDialog == JOptionPane.YES_OPTION) {
                     try {
-                        udpChat.setTarget(InetAddress.getByName(ip), port);
-                        chatArea.append("\nUDP verbunden mit " + from);
+                        udpChat.zielFestlegen(InetAddress.getByName(ipAdresse), port);
+                        chatTextbereich.append("\nUDP verbunden mit " + vonBenutzer);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -196,35 +192,33 @@ public class ChatGUI {
             }
 
             @Override
-            public void onUdpMessage(String msg) {
-                SwingUtilities.invokeLater(() -> chatArea.append("\nUDP: " + msg));
+            public void beiUdpNachricht(String nachricht) {
+                SwingUtilities.invokeLater(() -> chatTextbereich.append("\nUDP: " + nachricht));
             }
 
             @Override
-            public void onDisconnect() { }
+            public void beiTrennung() { }
         });
 
         // buttons
-        refreshBtn.addActionListener(e -> client.requestUserList());
-
-        inviteBtn.addActionListener(e -> {
-            String target = userList.getSelectedValue();
-            if (target != null) client.sendInvite(target);
+        refreshButton.addActionListener(e -> client.userlisteAnfordern());
+        inviteButton.addActionListener(e -> {
+            String zielUser = userliste.getSelectedValue();
+            if (zielUser != null) client.einladungSenden(zielUser);
         });
 
         // UDP messages senden
-        sendBtn.addActionListener(e -> sendMsg());
-        msgField.addActionListener(e -> sendMsg());
+        sendenButton.addActionListener(e -> nachrichtenSenden());
+        nachrichtenFeld.addActionListener(e -> nachrichtenSenden());
     }
 
-    private void sendMsg() {
-        String msg = msgField.getText();
-        msgField.setText("");
-
-        chatArea.append("\n(" + client.getUsername() + "): " + msg);
+    private void nachrichtenSenden() {
+        String nachricht = nachrichtenFeld.getText();
+        nachrichtenFeld.setText("");
+        chatTextbereich.append("\n(" + client.getUsername() + "): " + nachricht);
 
         try {
-            udpChat.sendMessage(client.getUsername() + ": " + msg);
+            udpChat.nachrichtSenden(client.getUsername() + ": " + nachricht);
         } catch (Exception e) {
             e.printStackTrace();
         }

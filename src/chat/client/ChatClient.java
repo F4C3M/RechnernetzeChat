@@ -5,19 +5,19 @@ import java.util.*;
 
 public class ChatClient {
     private Socket socket;
-    private BufferedReader in;
-    private PrintWriter out;
+    private BufferedReader eingabe;
+    private PrintWriter ausgabe;
     private String username;
     private int udpPort;
 
-    private final Object lock = new Object();
-    private String lastResponse;
+    private final Object sperreAntwort = new Object();
+    private String letzteAntwort;
 
-    public boolean connect(String host, int port) {
+    public boolean verbinden(String host, int port) {
         try {
             socket = new Socket(host, port);
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            out = new PrintWriter(socket.getOutputStream(), true);
+            eingabe = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            ausgabe = new PrintWriter(socket.getOutputStream(), true);
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -25,33 +25,33 @@ public class ChatClient {
         }
     }
 
-    public boolean register(String username, String password) {
-        synchronized (lock) {
-            out.println("REGISTER|" + username + "|" + password);
-            lastResponse = null;
+    public boolean registrieren(String username, String passwort) {
+        synchronized (sperreAntwort) {
+            ausgabe.println("REGISTER|" + username + "|" + passwort);
+            letzteAntwort = null;
 
-            while (lastResponse == null) {
+            while (letzteAntwort == null) {
                 try {
-                    lock.wait();
+                    sperreAntwort.wait();
                 } catch (InterruptedException ignored) {}
             }
 
-            return lastResponse.equals("REGISTER_OK");
+            return letzteAntwort.equals("REGISTER_OK");
         }
     }
 
-    public boolean login(String username, String password) throws IOException {
-        synchronized (lock) {
-            out.println("LOGIN|" + username + "|" + password);
-            lastResponse = null;
+    public boolean anmelden(String username, String passwort) throws IOException {
+        synchronized (sperreAntwort) {
+            ausgabe.println("LOGIN|" + username + "|" + passwort);
+            letzteAntwort = null;
 
-            while (lastResponse == null) {
+            while (letzteAntwort == null) {
                 try {
-                    lock.wait();
+                    sperreAntwort.wait();
                 } catch (InterruptedException ignored) {}
             }
 
-            if (lastResponse.equals("LOGIN_OK")) {
+            if (letzteAntwort.equals("LOGIN_OK")) {
                 this.username = username;
                 this.udpPort = 6000 + new Random().nextInt(1000);
                 return true;
@@ -60,47 +60,46 @@ public class ChatClient {
         }
     }
 
-    public void requestUserList() {
-        out.println("GET_USERS");
+    public void userlisteAnfordern() {
+        ausgabe.println("GET_USERS");
     }
 
-    public void sendInvite(String targetUser) {
-        out.println("INVITE|" + targetUser + "|" + udpPort);
+    public void einladungSenden(String user) {
+        ausgabe.println("INVITE|" + user + "|" + udpPort);
     }
 
-    public void listenAsync(ChatEvents events) {
+    public void serverListenerStarten(ChatEvents events) {
         new Thread(() -> {
             try {
-                String line;
+                String serverNachricht;
 
-                while ((line = in.readLine()) != null) {
-                    handleServerMessage(line, events);
+                while ((serverNachricht = eingabe.readLine()) != null) {
+                    serverMessageVerarbeiten(serverNachricht, events);
                 }
             } catch (IOException e) {
-                events.onDisconnect();
+                events.beiTrennung();
             }
         }).start();
     }
 
-    private void handleServerMessage(String msg, ChatEvents events) {
-        System.out.println("RECV: " + msg);
+    private void serverMessageVerarbeiten(String nachricht, ChatEvents events) {
+        System.out.println("RECV: " + nachricht);
 
-        if (msg.startsWith("LOGIN_") || msg.startsWith("REGISTER_")) {
-            synchronized (lock) {
-                lastResponse = msg;
-                lock.notifyAll();
+        if (nachricht.startsWith("LOGIN_") || nachricht.startsWith("REGISTER_")) {
+            synchronized (sperreAntwort) {
+                letzteAntwort = nachricht;
+                sperreAntwort.notifyAll();
             }
             return;
         }
 
-        String[] parts = msg.split("\\|");
-        switch (parts[0]) {
+        String[] nachrichtenTeile = nachricht.split("\\|");
+        switch (nachrichtenTeile[0]) {
             case "USERS":
-                events.onUserList(Arrays.asList(parts[1].split(",")));
+                events.beiUserliste(Arrays.asList(nachrichtenTeile[1].split(",")));
                 break;
-
             case "INVITE_FROM":
-                events.onInvite(parts[1] + "|" + parts[2] + "|" + parts[3]);
+                events.beiEinladung(nachrichtenTeile[1] + "|" + nachrichtenTeile[2] + "|" + nachrichtenTeile[3]);
                 break;
         }
     }

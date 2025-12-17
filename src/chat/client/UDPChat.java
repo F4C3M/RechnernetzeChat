@@ -4,41 +4,41 @@ import java.net.*;
 
 public class UDPChat {
     private DatagramSocket socket;
-    private int remotePort;
-    private InetAddress remoteHost;
+    private int zielPort;
+    private InetAddress zielAdresse;
 
-    public UDPChat(int listenPort) throws SocketException {
-        socket = new DatagramSocket(listenPort);
+    public UDPChat(int lauschPort) throws SocketException {
+        socket = new DatagramSocket(lauschPort);
     }
 
-    public void setTarget(InetAddress host, int port) {
-        this.remoteHost = host;
-        this.remotePort = port;
+    public void zielFestlegen(InetAddress host, int port) {
+        this.zielAdresse = host;
+        this.zielPort = port;
     }
 
-    public void sendMessage(String text) throws IOException {
+    public void nachrichtSenden(String text) throws IOException {
         // zum Debuggen / anschauen ein System.out
-        System.out.println("UDP sende an " + remoteHost + ":" + remotePort);
+        System.out.println("UDP sende an " + zielAdresse + ":" + zielPort);
         
-        String msg = "MSG|" + text;
-        byte[] data = msg.getBytes();
-        DatagramPacket packet = new DatagramPacket(data, data.length, remoteHost, remotePort);
-        socket.send(packet);
+        String nachricht = "MSG|" + text;
+        byte[] daten = nachricht.getBytes();
+        DatagramPacket paket = new DatagramPacket(daten, daten.length, zielAdresse, zielPort);
+        socket.send(paket);
     }
 
-    public void listen(ChatEvents events) {        
+    public void lauschen(ChatEvents events) {        
         new Thread(() -> {
             try {
-                byte[] buf = new byte[1024];
+                byte[] puffer = new byte[1024];
                 while (true) {
-                    DatagramPacket p = new DatagramPacket(buf, buf.length);
-                    socket.receive(p);
+                    DatagramPacket empfangenesPak = new DatagramPacket(puffer, puffer.length);
+                    socket.receive(empfangenesPak);
 
                     // zum Debuggen / anschauen ein System.out
-                    System.out.println("UDP empfangen von " + p.getAddress() + ":" + p.getPort());
+                    System.out.println("UDP empfangen von " + empfangenesPak.getAddress() + ":" + empfangenesPak.getPort());
 
-                    String msg = new String(p.getData(), 0, p.getLength());
-                    events.onUdpMessage(msg);
+                    String nachricht = new String(empfangenesPak.getData(), 0, empfangenesPak.getLength());
+                    events.beiUdpNachricht(nachricht);
                 }
             } catch (Exception ignored) {}
         }).start();
