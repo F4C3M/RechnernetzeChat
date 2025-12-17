@@ -1,10 +1,8 @@
 package chat.gui;
 import javax.swing.*;
-
 import chat.client.ChatClient;
 import chat.client.ChatEvents;
 import chat.client.UDPChat;
-
 import java.awt.*;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -49,6 +47,19 @@ public class ChatGUI {
 
         // Connect to server
         client.connect("localhost", 5001);
+
+        client.listenAsync(new ChatEvents() {
+            @Override public void onUserList(List<String> users) {}
+            @Override public void onInvite(String data) {}
+            @Override public void onUdpMessage(String msg) {}
+            @Override public void onDisconnect() {
+                JOptionPane.showMessageDialog(
+                    loginFrame,
+                    "Server getrennt"
+                );
+            }
+        });
+
 
         loginBtn.addActionListener(e -> {
             new Thread(() -> {
