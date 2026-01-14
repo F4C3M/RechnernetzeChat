@@ -64,8 +64,8 @@ public class ChatClient {
         ausgabe.println("GET_USERS");
     }
 
-    public void einladungSenden(String user) {
-        ausgabe.println("INVITE|" + user + "|" + udpPort);
+    public void einladungSenden(String user, String meinPublicKey) {
+        ausgabe.println("INVITE|" + user + "|" + udpPort + "|" + meinPublicKey);
     }
 
     public void serverListenerStarten(ChatEvents events) {

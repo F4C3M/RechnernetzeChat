@@ -2,10 +2,12 @@ package chat.gui;
 import javax.swing.*;
 import chat.client.ChatClient;
 import chat.client.ChatEvents;
+import chat.client.RSAManager;
 import chat.client.UDPChat;
 import java.awt.*;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.security.PublicKey;
 import java.util.List;
 
 public class ChatGUI {
@@ -16,6 +18,10 @@ public class ChatGUI {
     private JTextArea chatTextbereich = new JTextArea();
     private JTextField nachrichtenFeld = new JTextField();
     private UDPChat udpChat;
+
+    // neue Variablen für das RSA
+    private RSAManager rsa = new RSAManager();
+    private PublicKey partnerPublicKey;
     
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new ChatGUI().loginFensterStarten());
@@ -164,11 +170,13 @@ public class ChatGUI {
         chatFenster.add(rechtsPanel, BorderLayout.EAST);
         chatFenster.setVisible(true);
 
-        // Button Listener
+        // Button Listener [RSA UPDATE]
         refreshButton.addActionListener(e -> client.userlisteAnfordern());
         inviteButton.addActionListener(e -> {
             String zielUser = userliste.getSelectedValue();
-            if (zielUser != null) client.einladungSenden(zielUser);
+            if (zielUser != null) {
+                client.einladungSenden(zielUser, rsa.getPublicAsBase64());
+            }
         });
 
         // UDP messages senden
@@ -176,20 +184,36 @@ public class ChatGUI {
         nachrichtenFeld.addActionListener(e -> nachrichtenSenden());
     }
 
-    // NOCH KOMMENTIEREN!!!
+    // NOCH KOMMENTIEREN!!! [RSA UPDATE]
     private void nachrichtenSenden() {
-        String nachricht = nachrichtenFeld.getText();
-        nachrichtenFeld.setText("");
-        //chatTextbereich.append("\n(" + client.getUsername() + "): " + nachricht);
-        chatTextbereich.append("\n" + client.getUsername() + ": " + nachricht);
+        String nachricht = nachrichtenFeld.getText().trim();
+        
+        if (nachricht.isEmpty()) {
+            return;
+        }
 
+        if (partnerPublicKey == null) {
+            chatTextbereich.append("\nWarten auf Verschlüsselungs-Key vom Partner...");
+            return;
+        }
+        
         try {
-            udpChat.nachrichtSenden(client.getUsername() + ": " + nachricht);
+            // Nachricht mit dem publicKeyVomPartner verschlüsseln
+            String geheim = rsa.encrypt(nachricht, partnerPublicKey);
+
+            // über UDP an den partner User verschicken
+            udpChat.nachrichtSenden("MSG|" + client.getUsername() + ": " + geheim);
+            
+            // im eingenen Fenster eigene Nachricht sehen
+            chatTextbereich.append("\n" + client.getUsername() + ": " + nachricht);
+            
+            // zum leeren des Felds
+            nachrichtenFeld.setText("");
         } catch (Exception e) {
+            chatTextbereich.append("\nFehler beim Verschlüsseln!");
             e.printStackTrace();
         }
     }
-
 
     // VERÄNDERUNG: neue / andere / ausgelagerte Methoden
     private void handleEinladungProtokoll(String daten) {
@@ -206,40 +230,57 @@ public class ChatGUI {
         }
     }
 
+    // VERÄNDERUNG: RSA
     private void handleInviteFrom(String[] paket) {
         String vonUser = paket[1];
         String ip = paket[2];
         int port = Integer.parseInt(paket[3]);
+        String publicKeyVomPartner = paket[4];
 
         int antwort = JOptionPane.showConfirmDialog(chatFenster, 
                 "Einladung von " + vonUser + " annehmen?", "Invite", JOptionPane.YES_NO_OPTION);
 
         if (antwort == JOptionPane.YES_OPTION) {
             try {
+                // User1 Key speichern
+                partnerPublicKey = RSAManager.getPublicFromBase64(publicKeyVomPartner);
+                System.out.println("DEBUG: Public Key von " + vonUser + " erhalten und gespeichert.");
+
                 // User2 setzt User1 als Ziel fest
                 udpChat.zielFestlegen(InetAddress.getByName(ip), port);
-                udpChat.nachrichtSenden("HELLO"); 
-                client.sendeAusgabeAnServer("INVITE_ACCEPT|" + vonUser + "|" + client.getUdpPort());
+                udpChat.nachrichtSenden("HELLO");
+
+                // zurück zum Server schicken
+                client.sendeAusgabeAnServer("INVITE_ACCEPT|" + vonUser + "|" + client.getUdpPort() + "|" + rsa.getPublicAsBase64());                
                 
                 SwingUtilities.invokeLater(() -> chatTextbereich.append("\nSie sind mit '" + vonUser + "' verbunden."));
-            } catch (Exception e) { e.printStackTrace(); }
+            } catch (Exception e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(chatFenster, "Kryptographie-Fehler beim Key-Austausch!");
+            }
         }
     }
 
+    // VERÄNDERUNG: RSA
     private void handleInviteAccept(String[] paket) {
         try {
             String vonUser = paket[1];
             String ip = paket[2];
             int port = Integer.parseInt(paket[3]);
+            String publicKeyVomPartner = paket[4];
 
             System.out.println("DEBUG: User1 setzt jetzt Ziel auf " + ip + ":" + port);
 
             // sicherstellen, dass udpChat bereit ist
             if (udpChat != null) {
+                // User2 Key speichern
+                partnerPublicKey = RSAManager.getPublicFromBase64(publicKeyVomPartner);
+                System.out.println("DEBUG: Public Key von " + vonUser + " erhalten.");
+
                 udpChat.zielFestlegen(InetAddress.getByName(ip), port);
                 udpChat.nachrichtSenden("HELLO");
-                SwingUtilities.invokeLater(() -> 
-                    chatTextbereich.append("\nSie sind mit '" + vonUser + "' verbunden."));
+
+                SwingUtilities.invokeLater(() -> chatTextbereich.append("\nSie sind mit '" + vonUser + "' verbunden."));
             } else {
                 System.out.println("DEBUG-FAIL: udpChat war noch null!");
             }
@@ -248,37 +289,55 @@ public class ChatGUI {
         }
     }
 
-    private void handleUdpProtokoll(String nachrichten) {
+    // VERÄNDERUNG: RSA
+    private void handleUdpProtokoll(String nachricht) {
         // 1. Handshake Filter
-        if (nachrichten.equals("HELLO")) {
-            try {
-                udpChat.nachrichtSenden("HELLO_ACK");
-            } catch (IOException e) {
-                e.printStackTrace();
+        if (nachricht.equals("HELLO") || nachricht.equals("HELLO_ACK")) {
+            if (nachricht.equals("HELLO")) {
+                try {
+                    udpChat.nachrichtSenden("HELLO_ACK");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
-            return;
-        }
-        // ignorieren (Tunnel ist offen)
-        if (nachrichten.equals("HELLO_ACK")) {
             return;
         }
 
-        // 2. Anzeige der echten Nachrichten
+        // 2. Verarbeitung verschlüsselter Nachrichten
         SwingUtilities.invokeLater(() -> {
-            String anzeige = nachrichten;
-            if (nachrichten.startsWith("MSG|")) {
-                anzeige = nachrichten.substring(4);
+            try {
+                String inhalt = nachricht;
+                if (nachricht.startsWith("MSG|")) {
+                    inhalt = nachricht.substring(4);
+                }
+
+                // trennen von Name & verschlü. Text
+                // Voraussetzung "Name: Geheimnis"
+                String[] teile = inhalt.split(": ", 2);
+                if (teile.length < 2) {
+                    chatTextbereich.append("\n" + inhalt);
+                    return;
+                }
+
+                String absender = teile[0];
+                String verschluesselt = teile[1];
+
+                String klartext = rsa.decrypt(verschluesselt);
+                chatTextbereich.append("\n" + absender + ": " + klartext);
+                
+            } catch (Exception e) {
+                chatTextbereich.append("\nNachricht empfangen, aber Entschlüsselung fehlgeschlagen!");
+                System.err.println("RSA-Fehler: " + e.getMessage());
             }
-            chatTextbereich.append("\n" + anzeige);
         });
     }
 
 
     // Over-all-VERÄNDERUNGEN:
-    // nur noch ein Listener (in zeigLoginFenster())
-    // in zeigLoginFenster() client.serverListenerStarten umgeschrieben (viel) 
-    // in zeigLoginFenster()/@Override beiUserlist (wird nur geupdatet, wenn das Modell schon existiert)
-    // in chatOeffnen() initialisieren wir NUR NOCH die UDP-Komponente und das Fenster
-    // Methoden aus chatOeffnen() rausgenommen (in die allgemeine Klasse)
+    // nur noch ein Listener (in loginFensterStarten())
+    // in loginFenserStarten() client.serverListenerStarten umgeschrieben (viel) 
+    // in loginFensterStarten()/@Override beiUserlist (wird nur geupdatet, wenn das Modell schon existiert)
+    // in chatFensterStarten() initialisieren wir NUR NOCH die UDP-Komponente und das Fenster
+    // Methoden aus chatFensterStarten() rausgenommen (in die allgemeine Klasse)
     // insgesamte Logik nach unten ausgelagert
 }

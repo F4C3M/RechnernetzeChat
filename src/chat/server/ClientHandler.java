@@ -107,37 +107,41 @@ class ClientHandler extends Thread {
     }
 
 
-    // VERÄNDERUNG: für Invite in nur eine Richtung reicht tut sein
+    // VERÄNDERUNG: Invite einseitig + RSA länge
     private void einladungBearbeiten(String[] p) {
-        if (p.length < 3) return;
+        // Kontrolle für: CMD|User|Port|Key
+        if (p.length < 4) {
+            return;
+        }
 
         String zielUser = p[1];
         int udpPort = Integer.parseInt(p[2]);
+        String publicKey = p[3];
 
         ClientHandler zielHandler = onlineUser.getUserHandler(zielUser);
-        if (zielHandler == null) return;
-
+        if (zielHandler == null) {
+            return;
+        }
+        
         String ipAdresse = socket.getInetAddress().getHostAddress();
-
-        // NUR an User2
-        zielHandler.ausgabe.println("INVITE_FROM|" + username + "|" + ipAdresse + "|" + udpPort);
+        zielHandler.ausgabe.println("INVITE_FROM|" + username + "|" + ipAdresse + "|" + udpPort + "|" + publicKey);
     }
 
-    // VERÄNDERUNG: neue Methode (für Einladungen)
+    // VERÄNDERUNG: neue Methode für einseitige optimierung + RSA
     private void inviteAcceptBearbeiten(String[] p) {
-        if (p.length < 3) return;
+        // Kontrolle für: CMD|User|Port|Key
+        if (p.length < 4) {
+            return;
+        }
 
-        String einladenderUser = p[1]; // derjenige, der eingeladen hat
-        int udpPort = Integer.parseInt(p[2]); // UDP-Port von User2
+        String einladenderUser = p[1];
+        int udpPort = Integer.parseInt(p[2]);
+        String publicKey = p[3];
 
         ClientHandler einladenderHandler = onlineUser.getUserHandler(einladenderUser);
         if (einladenderHandler != null) {
-            // IP von User2
             String ipAdresse = socket.getInetAddress().getHostAddress();
-            // User1 bekommt Nachricht, dass User2 angenommen hat
-            einladenderHandler.ausgabe.println(
-                "INVITE_ACCEPT_FROM|" + username + "|" + ipAdresse + "|" + udpPort
-            );
+            einladenderHandler.ausgabe.println("INVITE_ACCEPT_FROM|" + username + "|" + ipAdresse + "|" + udpPort + "|" + publicKey);
         }
     }
 }
