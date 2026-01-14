@@ -35,7 +35,6 @@ public class ChatClient {
                     sperreAntwort.wait();
                 } catch (InterruptedException ignored) {}
             }
-
             return letzteAntwort.equals("REGISTER_OK");
         }
     }
@@ -64,6 +63,7 @@ public class ChatClient {
         ausgabe.println("GET_USERS");
     }
 
+    // VERÄNDERUNG: RSA angepasst durch "meinPublicKey"
     public void einladungSenden(String user, String meinPublicKey) {
         ausgabe.println("INVITE|" + user + "|" + udpPort + "|" + meinPublicKey);
     }
@@ -99,14 +99,15 @@ public class ChatClient {
             case "USERS":
                 events.beiUserliste(Arrays.asList(nachrichtenTeile[1].split(",")));
                 break;
-                case "INVITE_FROM":
-                case "INVITE_ACCEPT_FROM":
-                    events.beiEinladung(nachricht); // komplette Nachricht weitergeben
-                    break;
+            case "INVITE_FROM":
+            case "INVITE_ACCEPT_FROM":
+                // komplette Nachricht weitergeben
+                events.beiEinladung(nachricht);
+                break;
         }
     }
 
-    // VERÄNDERUNG: neue Methode (für ChatGUI.java "beiEinladung" | Zeile: 193)
+    // VERÄNDERUNG: neue Methode
     public void sendeAusgabeAnServer(String nachricht) {
         ausgabe.println(nachricht);
     }

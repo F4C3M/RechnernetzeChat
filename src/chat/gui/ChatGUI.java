@@ -175,7 +175,7 @@ public class ChatGUI {
         inviteButton.addActionListener(e -> {
             String zielUser = userliste.getSelectedValue();
             if (zielUser != null) {
-                client.einladungSenden(zielUser, rsa.getPublicAsBase64());
+                client.einladungSenden(zielUser, rsa.publicKeyEncoder());
             }
         });
 
@@ -243,7 +243,7 @@ public class ChatGUI {
         if (antwort == JOptionPane.YES_OPTION) {
             try {
                 // User1 Key speichern
-                partnerPublicKey = RSAManager.getPublicFromBase64(publicKeyVomPartner);
+                partnerPublicKey = RSAManager.publicKeyDecoder(publicKeyVomPartner);
                 System.out.println("DEBUG: Public Key von " + vonUser + " erhalten und gespeichert.");
 
                 // User2 setzt User1 als Ziel fest
@@ -251,7 +251,7 @@ public class ChatGUI {
                 udpChat.nachrichtSenden("HELLO");
 
                 // zurück zum Server schicken
-                client.sendeAusgabeAnServer("INVITE_ACCEPT|" + vonUser + "|" + client.getUdpPort() + "|" + rsa.getPublicAsBase64());                
+                client.sendeAusgabeAnServer("INVITE_ACCEPT|" + vonUser + "|" + client.getUdpPort() + "|" + rsa.publicKeyEncoder());                
                 
                 SwingUtilities.invokeLater(() -> chatTextbereich.append("\nSie sind mit '" + vonUser + "' verbunden."));
             } catch (Exception e) {
@@ -274,7 +274,7 @@ public class ChatGUI {
             // sicherstellen, dass udpChat bereit ist
             if (udpChat != null) {
                 // User2 Key speichern
-                partnerPublicKey = RSAManager.getPublicFromBase64(publicKeyVomPartner);
+                partnerPublicKey = RSAManager.publicKeyDecoder(publicKeyVomPartner);
                 System.out.println("DEBUG: Public Key von " + vonUser + " erhalten.");
 
                 udpChat.zielFestlegen(InetAddress.getByName(ip), port);
