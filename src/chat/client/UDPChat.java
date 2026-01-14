@@ -16,17 +16,32 @@ public class UDPChat {
         this.zielPort = port;
     }
 
+    // ÄNDERUNG: Neucheiten an der nachrichtSenden Methode
     public void nachrichtSenden(String text) throws IOException {
-        // zum Debuggen / anschauen ein System.out
-        System.out.println("UDP sende an " + zielAdresse + ":" + zielPort);
-        
-        String nachricht = "MSG|" + text;
-        byte[] daten = nachricht.getBytes();
+        if (zielAdresse == null) {
+            // Nachricht zum Debuggen
+            System.out.println("DEBUG-UDP-FAIL: Senden nicht möglich, ZielAdresse ist NULL!");
+            return;
+        }
+
+        // Nachricht zum Debuggen
+        System.out.println("DEBUG-UDP-SEND: Sende '" + text + "' an " + zielAdresse + ":" + zielPort);
+
+        String protokollNachricht;
+        // Technische Befehle ohne MSG-Präfix senden
+        if (text.equals("HELLO") || text.equals("HELLO_ACK")) {
+            protokollNachricht = text;
+        } else {
+            // Alles andere ist eine Chat-Nachricht
+            protokollNachricht = "MSG|" + text;
+        }
+
+        byte[] daten = protokollNachricht.getBytes();
         DatagramPacket paket = new DatagramPacket(daten, daten.length, zielAdresse, zielPort);
         socket.send(paket);
     }
 
-    public void lauschen(ChatEvents events) {        
+    public void listen(ChatEvents events) {        
         new Thread(() -> {
             try {
                 byte[] puffer = new byte[1024];

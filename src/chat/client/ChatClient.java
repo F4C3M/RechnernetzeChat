@@ -82,6 +82,7 @@ public class ChatClient {
         }).start();
     }
 
+    // VERÄNDERUNG: case INVITE_FROM | case INVITE_ACCEPT_FROM
     private void serverMessageVerarbeiten(String nachricht, ChatEvents events) {
         System.out.println("RECV: " + nachricht);
 
@@ -98,10 +99,16 @@ public class ChatClient {
             case "USERS":
                 events.beiUserliste(Arrays.asList(nachrichtenTeile[1].split(",")));
                 break;
-            case "INVITE_FROM":
-                events.beiEinladung(nachrichtenTeile[1] + "|" + nachrichtenTeile[2] + "|" + nachrichtenTeile[3]);
-                break;
+                case "INVITE_FROM":
+                case "INVITE_ACCEPT_FROM":
+                    events.beiEinladung(nachricht); // komplette Nachricht weitergeben
+                    break;
         }
+    }
+
+    // VERÄNDERUNG: neue Methode (für ChatGUI.java "beiEinladung" | Zeile: 193)
+    public void sendeAusgabeAnServer(String nachricht) {
+        ausgabe.println(nachricht);
     }
 
     public String getUsername() {

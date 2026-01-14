@@ -38,6 +38,7 @@ class ClientHandler extends Thread {
         }
     }
 
+    // ÄNDERUNG: case: INVITE (verändert) || case: INVITE_ACCEPT (neu)
     private void nachrichtenVerarbeiten(String nachricht) {
         System.out.println("RECV: " + nachricht);
 
@@ -56,6 +57,9 @@ class ClientHandler extends Thread {
                 break;
             case "INVITE":
                 einladungBearbeiten(nachrichtenTeile);
+                break;
+            case "INVITE_ACCEPT":
+                inviteAcceptBearbeiten(nachrichtenTeile);
                 break;
             default:
                 ausgabe.println("ERROR|Unknown command");
@@ -102,19 +106,38 @@ class ClientHandler extends Thread {
         ausgabe.println("USERS|" + users);
     }
 
+
+    // VERÄNDERUNG: für Invite in nur eine Richtung reicht tut sein
     private void einladungBearbeiten(String[] p) {
         if (p.length < 3) return;
 
         String zielUser = p[1];
-        String udpPort = p[2];
+        int udpPort = Integer.parseInt(p[2]);
 
         ClientHandler zielHandler = onlineUser.getUserHandler(zielUser);
         if (zielHandler == null) return;
 
         String ipAdresse = socket.getInetAddress().getHostAddress();
 
-        zielHandler.ausgabe.println(
-            "INVITE_FROM|" + username + "|" + ipAdresse + "|" + udpPort
-        );
+        // NUR an User2
+        zielHandler.ausgabe.println("INVITE_FROM|" + username + "|" + ipAdresse + "|" + udpPort);
+    }
+
+    // VERÄNDERUNG: neue Methode (für Einladungen)
+    private void inviteAcceptBearbeiten(String[] p) {
+        if (p.length < 3) return;
+
+        String einladenderUser = p[1]; // derjenige, der eingeladen hat
+        int udpPort = Integer.parseInt(p[2]); // UDP-Port von User2
+
+        ClientHandler einladenderHandler = onlineUser.getUserHandler(einladenderUser);
+        if (einladenderHandler != null) {
+            // IP von User2
+            String ipAdresse = socket.getInetAddress().getHostAddress();
+            // User1 bekommt Nachricht, dass User2 angenommen hat
+            einladenderHandler.ausgabe.println(
+                "INVITE_ACCEPT_FROM|" + username + "|" + ipAdresse + "|" + udpPort
+            );
+        }
     }
 }
