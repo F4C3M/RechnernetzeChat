@@ -60,7 +60,7 @@ class ClientHandler extends Thread {
                 einladungBearbeiten(nachrichtenTeile);
                 break;
             case "INVITE_ACCEPT":
-                inviteAcceptBearbeiten(nachrichtenTeile);
+                einladungAnnahmeBearbeiten(nachrichtenTeile);
                 break;
             default:
                 ausgabe.println("ERROR|Unknown command");
@@ -108,13 +108,16 @@ class ClientHandler extends Thread {
         ausgabe.println("LOGIN_OK");
     }
 
+    // ...
     private void userlisteSenden() {
         String users = String.join(",", onlineUser.getUsernames());
         ausgabe.println("USERS|" + users);
     }
 
 
-    // VERÄNDERUNG: Invite einseitig + RSA länge
+    // vom GUI IviteButton über ChatClient.java hier her
+    // sucht OnlineUser.java durch, schickt weiter mit INVITE_FROM
+    // zu ChatClient.java
     private void einladungBearbeiten(String[] p) {
         // Kontrolle für: CMD|User|Port|Key
         if (p.length < 4) {
@@ -134,8 +137,8 @@ class ClientHandler extends Thread {
         zielHandler.ausgabe.println("INVITE_FROM|" + username + "|" + ipAdresse + "|" + udpPort + "|" + publicKey);
     }
 
-    // VERÄNDERUNG: neue Methode für einseitige optimierung + RSA
-    private void inviteAcceptBearbeiten(String[] p) {
+    // INVITE_ACCEPT_FROM
+    private void einladungAnnahmeBearbeiten(String[] p) {
         // Kontrolle für: CMD|User|Port|Key
         if (p.length < 4) {
             return;

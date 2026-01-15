@@ -56,7 +56,7 @@ public class ChatGUI {
         client.verbinden("localhost", 5001);
 
 
-        // Listener für den Server starten
+        // Listener für den Server starten (verarbeitet die ChatEvents)
         client.serverListenerStarten(new ChatEvents() {
             @Override public void beiUserliste(List<String> users) {
                 if (userlistenModell != null) {

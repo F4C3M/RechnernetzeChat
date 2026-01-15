@@ -70,12 +70,12 @@ public class ChatClient {
         }
     }
 
-    // gibt die Userliste aus für refreshButton
+    // gibt die Userliste aus für refreshButton [TCP]
     public void userlisteAnfordern() {
         ausgabe.println("GET_USERS");
     }
 
-    // 
+    // ist die Methode für den Invite Button [TCP]
     public void einladungSenden(String user, String meinPublicKey) {
         ausgabe.println("INVITE|" + user + "|" + udpPort + "|" + meinPublicKey);
     }
@@ -94,7 +94,7 @@ public class ChatClient {
         }).start();
     }
 
-    // verarbeitet die Message vom Server [ClientHandler.java]
+    // verarbeitet die Message vom Server [ClientHandler.java] (INVITE_FROM)
     private void serverMessageVerarbeiten(String nachricht, ChatEvents events) {
         System.out.println("RECV: " + nachricht);
 
