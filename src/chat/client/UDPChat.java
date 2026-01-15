@@ -16,7 +16,7 @@ public class UDPChat {
         this.zielPort = port;
     }
 
-    // ÄNDERUNG: Neucheiten an der nachrichtSenden Methode
+    // sendet Nachtricht von ChatGUI.java/nachrichtenSenden()
     public void nachrichtSenden(String text) throws IOException {
         if (zielAdresse == null) {
             // Nachricht zum Debuggen
@@ -41,6 +41,7 @@ public class UDPChat {
         socket.send(paket);
     }
 
+    // wartet auf Nachrichten des Partners
     public void listen(ChatEvents events) {        
         new Thread(() -> {
             try {

@@ -289,9 +289,9 @@ public class ChatGUI {
         }
     }
 
-    // VERÄNDERUNG: RSA
+    // bekommt Nachricht von UDPChat.java
     private void handleUdpProtokoll(String nachricht) {
-        // 1. Handshake Filter
+        // Handshake Filter
         if (nachricht.equals("HELLO") || nachricht.equals("HELLO_ACK")) {
             if (nachricht.equals("HELLO")) {
                 try {
@@ -303,7 +303,7 @@ public class ChatGUI {
             return;
         }
 
-        // 2. Verarbeitung verschlüsselter Nachrichten
+        // Verarbeitung verschlüsselter Nachrichten
         SwingUtilities.invokeLater(() -> {
             try {
                 String inhalt = nachricht;
