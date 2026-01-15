@@ -3,10 +3,15 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 
+// IST BRÜCK ZW. GUI und SERVER [TCP]
+// stellt Verbindung zum Server her
+// sendet die Nachrichten
+// verabeitung der Servernachrichten
 public class ChatClient {
-    private Socket socket;
+    private Socket socket; // "Steckdose" | 2 ComProg Daten aus.
     private BufferedReader eingabe;
     private PrintWriter ausgabe;
+    
     private String username;
     private int udpPort;
 
@@ -25,25 +30,31 @@ public class ChatClient {
         }
     }
 
+    // [GUI aus], sendet Nachricht an Server [TCP]
     public boolean registrieren(String username, String passwort) {
         synchronized (sperreAntwort) {
             ausgabe.println("REGISTER|" + username + "|" + passwort);
+            
+            // damit keine alte Antwort den Client verwirrt
             letzteAntwort = null;
-
+            // wartet auf Antwort aus serverMessageVerarbeiten() [if]
             while (letzteAntwort == null) {
                 try {
                     sperreAntwort.wait();
                 } catch (InterruptedException ignored) {}
             }
+            // vergleicht mit der "letztenAntwort" vom Server [ClientHandler.java/registrierungBearbeiten]
             return letzteAntwort.equals("REGISTER_OK");
         }
     }
 
+    // [GUI aus], sendet Nachricht an Server [TCP]
     public boolean anmelden(String username, String passwort) throws IOException {
         synchronized (sperreAntwort) {
             ausgabe.println("LOGIN|" + username + "|" + passwort);
             letzteAntwort = null;
 
+            // wartet, bis ClientHandler.java, UserDatabase.java, OnlineUser.java durch sind
             while (letzteAntwort == null) {
                 try {
                     sperreAntwort.wait();
@@ -59,11 +70,12 @@ public class ChatClient {
         }
     }
 
+    // gibt die Userliste aus für refreshButton
     public void userlisteAnfordern() {
         ausgabe.println("GET_USERS");
     }
 
-    // VERÄNDERUNG: RSA angepasst durch "meinPublicKey"
+    // 
     public void einladungSenden(String user, String meinPublicKey) {
         ausgabe.println("INVITE|" + user + "|" + udpPort + "|" + meinPublicKey);
     }
@@ -82,7 +94,7 @@ public class ChatClient {
         }).start();
     }
 
-    // VERÄNDERUNG: case INVITE_FROM | case INVITE_ACCEPT_FROM
+    // verarbeitet die Message vom Server [ClientHandler.java]
     private void serverMessageVerarbeiten(String nachricht, ChatEvents events) {
         System.out.println("RECV: " + nachricht);
 
@@ -112,10 +124,12 @@ public class ChatClient {
         ausgabe.println(nachricht);
     }
 
+    // gibt Username zurück
     public String getUsername() {
         return username;
     }
 
+    // gibt Port zurück
     public int getUdpPort() {
         return udpPort;
     }

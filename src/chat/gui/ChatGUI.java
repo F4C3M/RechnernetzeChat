@@ -77,7 +77,7 @@ public class ChatGUI {
             }
         });
 
-        // Listener für den "loginButton"
+        // Listener für den "loginButton" (startet die anmelde Welle)
         loginButton.addActionListener(e -> {
             new Thread(() -> {
                 try {
@@ -100,7 +100,7 @@ public class ChatGUI {
             }).start();
         });
 
-        // Listener für den "registerButton"
+        // Listener für den "registerButton" (startet die registrierungs Welle)
         registerButton.addActionListener(e -> {
             new Thread(() -> {
                 boolean erfolgreich = client.registrieren(
@@ -112,7 +112,7 @@ public class ChatGUI {
                     if (erfolgreich) {
                         JOptionPane.showMessageDialog(loginFenster, "Registrierung erfolgt! Loggen Sie sich ein.");
                     } else {
-                        JOptionPane.showMessageDialog(loginFenster, "Der Username ist schon vergeben!");
+                        JOptionPane.showMessageDialog(loginFenster, "Username vergeben! Passwort eingeben!");
                     }
                 });
             }).start();

@@ -19,7 +19,7 @@ class ClientHandler extends Thread {
         this.ausgabe = new PrintWriter(socket.getOutputStream(), true);
     }
 
-    @Override
+    @Override // nimmt eingehende Nachrichten an von Client
     public void run() {
         try {
             String eingehendeNachricht;
@@ -38,10 +38,11 @@ class ClientHandler extends Thread {
         }
     }
 
-    // ÄNDERUNG: case: INVITE (verändert) || case: INVITE_ACCEPT (neu)
+    // verarbeitet die Nachrichten, welche vom Client [ChatClient.java] kommen
     private void nachrichtenVerarbeiten(String nachricht) {
         System.out.println("RECV: " + nachricht);
 
+        // splitet die Nachricht vom Client [ChatClient.java] und schaut durch
         String[] nachrichtenTeile = nachricht.split("\\|");
         String befehl = nachrichtenTeile[0];
 
@@ -66,37 +67,43 @@ class ClientHandler extends Thread {
         }
     }
 
+    // verarbeitet die Registrierung des Clients [ChatClient.java]
     private void registrierungBearbeiten(String[] nachrichtenTeile) {
+        // Nachrichtenlänge prüfen
         if (nachrichtenTeile.length < 3) {
-            ausgabe.println("REGISTER_FAIL|Invalid format");
+            ausgabe.println("REGISTER_FAIL|Invalides Format!");
             return;
         }
 
         String benutzername = nachrichtenTeile[1];
         String passwort = nachrichtenTeile[2];
 
+        // schickt es zu UserDatabase.java weiter
         if (userDatenbank.registrieren(benutzername, passwort)) {
             ausgabe.println("REGISTER_OK");
         } else {
-            ausgabe.println("REGISTER_FAIL|Username existiert bereits");
+            ausgabe.println("REGISTER_FAIL|Username existiert bereits! Passwort eingeben!");
         }
     }
 
+    // verarbeitet die Anmeldung des Clients [ChatClient.java]
     private void anmeldungBearbeiten(String[] p) {
         if (p.length < 3) {
-            ausgabe.println("LOGIN_FAIL|Invalid format");
+            ausgabe.println("LOGIN_FAIL|Invalide Format!");
             return;
         }
 
         String benutzername = p[1];
         String passwort = p[2];
 
+        // wenn anmelden falsch läuft = return + Fehler
         if (!userDatenbank.anmelden(benutzername, passwort)) {
             ausgabe.println("LOGIN_FAIL|Falsche Login-Daten");
             return;
         }
 
         username = benutzername;
+        // speichert den User in der OnlineUser.java
         onlineUser.hinzufuegen(username, this);
         ausgabe.println("LOGIN_OK");
     }

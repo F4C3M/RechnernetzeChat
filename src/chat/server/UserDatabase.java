@@ -7,31 +7,41 @@ import java.security.NoSuchAlgorithmException;
 class UserDatabase {
     private final Map<String, String> users = new ConcurrentHashMap<>();
 
-    // zum registrieren (neu angepasst für Hashing || Zeile 14-15)
+    // kommt von ClientHandler.java/regestrierungBearbeiten() || hasht passwort
     public synchronized boolean registrieren(String username, String passwort) {
-        if (users.containsKey(username)) return false;
+        if (users.containsKey(username)) {
+            return false;
+        }
 
+        // ruft die hashPasswort Methode auf
         String hash = hashPasswort(passwort);
+        // kommt aus dem hashPasswort() mit Hash
         users.put(username, hash);
         return true;
     }
 
-    // zum anmelden (neu angepasst für Hashing || Zeile 21-24)
+    // kommt von ClientHandler.java/anmeldungBearbeiten()
     public boolean anmelden(String username, String passwort) {
+        // überprüft, ob in der user Liste der Name existiert
         String gespeicherterHash = users.get(username);
-        if (gespeicherterHash == null) return false;
+        if (gespeicherterHash == null) {
+            return false;
+        }
 
+        // eingetipptes Passwort wird gehasht (zum späteren Vergleich)
         String eingegebenerHash = hashPasswort(passwort);
+        // vergleicht eingegebenes Passwort mit gespeichertem Passwort/Hash
         return gespeicherterHash.equals(eingegebenerHash);
     }
 
-
-    // für hashing der Passworte
+    // hasht die Passwörteter
     private String hashPasswort(String passwort) {
         try {
+            // errechnet aus dem Passwort ein 256 bit Fingerabdruck
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] hashBytes = md.digest(passwort.getBytes());
 
+            // byte Hash in lesbaren hexString umwandeln
             StringBuilder hexString = new StringBuilder();
             for (byte b : hashBytes) {
                 String hex = Integer.toHexString(0xff & b);

@@ -7,6 +7,7 @@ import java.util.Base64;
 public class RSAManager {
     private KeyPair keyPaar;
 
+    // hier ist auch Key erstellen
     public RSAManager() {
         // generator würfelt 2 Primzahlen zusammen Ergebnist = public + private Key
         // 2048 ist die Schlüssellänge ("goldener Standard")
@@ -19,7 +20,7 @@ public class RSAManager {
         }
     }
 
-    // verwandelt den Key in ein "Salat"
+    // verwandelt deinen Key in ein "Salat"
     public String publicKeyEncoder() {
         return Base64.getEncoder().encodeToString(keyPaar.getPublic().getEncoded());
     }
@@ -27,22 +28,25 @@ public class RSAManager {
     // verwandelt den "Salat" deines Freundes wieder in ein Schlüsselobjekt (zum rechnen)
     public static PublicKey publicKeyDecoder(String publicKeyEncoded) throws Exception {
         byte[] bytes = Base64.getDecoder().decode(publicKeyEncoded);
+        
         return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(bytes));
     }
 
     // verwandelt Nachricht mit dem publicKey vom Partener in "Salat"
-    public String encrypt(String text, PublicKey partnerKey) throws Exception {
+    public String encrypt(String nachricht, PublicKey partnerKey) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
         cipher.init(Cipher.ENCRYPT_MODE, partnerKey);
-        byte[] bytes = cipher.doFinal(text.getBytes());
+        byte[] bytes = cipher.doFinal(nachricht.getBytes());
+        
         return Base64.getEncoder().encodeToString(bytes);
     }
 
     // verwandelt "Salat" mit eigenem private Key wieder in eine Nachricht
-    public String decrypt(String base64) throws Exception {
+    public String decrypt(String nachrichtEncoded) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
         cipher.init(Cipher.DECRYPT_MODE, keyPaar.getPrivate());
-        byte[] bytes = Base64.getDecoder().decode(base64);
+        byte[] bytes = Base64.getDecoder().decode(nachrichtEncoded);
+        
         return new String(cipher.doFinal(bytes));
     }
 }
